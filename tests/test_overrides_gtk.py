@@ -14,7 +14,7 @@ from .helper import ignore_gi_deprecation_warnings, capture_glib_warnings
 
 import gi.overrides
 import gi.types
-from gi.repository import GLib, GObject
+from gi.repository import Gio, GLib, GObject
 
 try:
     from gi.repository import Gtk, GdkPixbuf, Gdk
@@ -1188,6 +1188,70 @@ class TestTreeModelRow(unittest.TestCase):
         assert row.previous[0] == 42
         assert row.get_previous()[0] == 42
         assert row.previous.previous is None
+
+
+@unittest.skipUnless(Gtk, "Gtk not available")
+@unittest.skipIf(Gtk_version != "4.0", "only in gtk4")
+class TestSortListModel(unittest.TestCase):
+    class Person(GObject.GObject):
+
+        name = GObject.Property(type=str, default="")
+
+        def __init__(self, name):
+            super().__init__()
+            self.props.name = name
+
+    def names_sort(self, name_a, name_b):
+        return name_b.props.name < name_a.props.name
+
+    def test_sort_list_model_init(self):
+        sort_list_model_empty = Gtk.SortListModel()
+        assert isinstance(sort_list_model_empty, Gtk.SortListModel)
+        assert sort_list_model_empty.props.model is None
+        assert sort_list_model_empty.props.has_sort is False
+
+        model = Gio.ListStore.new(self.Person)
+        sort_list_model_with_model = Gtk.SortListModel(model)
+        assert isinstance(sort_list_model_with_model, Gtk.SortListModel)
+        assert sort_list_model_with_model.props.model == model
+        assert sort_list_model_with_model.props.has_sort is False
+
+        sort_list_model_with_sort = Gtk.SortListModel(model, self.names_sort)
+        assert isinstance(sort_list_model_with_sort, Gtk.SortListModel)
+        assert sort_list_model_with_sort.props.model == model
+        assert sort_list_model_with_sort.props.has_sort is True
+
+        john = self.Person("john")
+        bob = self.Person("bob")
+        model.append(john)
+        model.append(bob)
+        assert sort_list_model_with_sort.get_item(0) == bob
+        assert sort_list_model_with_sort.get_item(1) == john
+
+        alice = self.Person("alice")
+        model.append(alice)
+        assert sort_list_model_with_sort.get_item(0) == alice
+        assert sort_list_model_with_sort.get_item(2) == john
+
+    def test_sort_list_model_sort_func(self):
+        model = Gio.ListStore.new(self.Person)
+        sort_model = Gtk.SortListModel(model)
+        sort_model.set_sort_func(self.names_sort)
+        assert isinstance(sort_model, Gtk.SortListModel)
+        assert sort_model.props.model == model
+        assert sort_model.props.has_sort is True
+
+        john = self.Person("john")
+        bob = self.Person("bob")
+        model.append(john)
+        model.append(bob)
+        assert sort_model.get_item(0) == bob
+        assert sort_model.get_item(1) == john
+
+        alice = self.Person("alice")
+        model.append(alice)
+        assert sort_model.get_item(0) == alice
+        assert sort_model.get_item(2) == john
 
 
 @ignore_gi_deprecation_warnings
