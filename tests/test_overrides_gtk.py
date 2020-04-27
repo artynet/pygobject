@@ -1052,7 +1052,19 @@ class TestBuilder(unittest.TestCase):
             Gtk._extract_handler_and_args({"foo": []}, "foo")
 
     def test_builder_with_handler_and_args(self):
-        builder = Gtk.Builder()
+        args_collector = []
+
+        def on_signal(*args):
+            args_collector.append(args)
+
+        signals_dict = {'on_signal1': (on_signal, 1, 2),
+                        'on_signal2': on_signal}
+
+        if GTK4:
+            builder = Gtk.Builder(signals_dict)
+        else:
+            builder = Gtk.Builder()
+
         builder.add_from_string("""
             <interface>
               <object class="GIOverrideSignalTest" id="object_sig_test">
@@ -1062,13 +1074,8 @@ class TestBuilder(unittest.TestCase):
             </interface>
             """)
 
-        args_collector = []
-
-        def on_signal(*args):
-            args_collector.append(args)
-
-        builder.connect_signals({'on_signal1': (on_signal, 1, 2),
-                                 'on_signal2': on_signal})
+        if not GTK4:
+            builder.connect_signals(signals_dict)
 
         objects = builder.get_objects()
         self.assertEqual(len(objects), 1)
@@ -1080,7 +1087,19 @@ class TestBuilder(unittest.TestCase):
         self.assertSequenceEqual(args_collector[1], (obj, ))
 
     def test_builder_with_handler_object(self):
-        builder = Gtk.Builder()
+        args_collector = []
+
+        def on_signal(*args):
+            args_collector.append(args)
+
+        signals_dict = {'on_signal1': (on_signal, 1, 2),
+                        'on_signal2': on_signal}
+
+        if GTK4:
+            builder = Gtk.Builder(signals_dict)
+        else:
+            builder = Gtk.Builder()
+
         builder.add_from_string("""
             <interface>
               <object class="GIOverrideSignalTestObject" id="foo"/>
@@ -1091,13 +1110,9 @@ class TestBuilder(unittest.TestCase):
             </interface>
             """)
 
-        args_collector = []
+        if not GTK4:
+            builder.connect_signals(signals_dict)
 
-        def on_signal(*args):
-            args_collector.append(args)
-
-        builder.connect_signals({'on_signal1': (on_signal, 1, 2),
-                                 'on_signal2': on_signal})
         obj = builder.get_object("foo")
         emitter = builder.get_object("object_sig_test")
         emitter.emit("test-signal")
@@ -1125,7 +1140,10 @@ class TestBuilder(unittest.TestCase):
                     self.after_sentinel += 1
 
         signal_checker = SignalCheck()
-        builder = Gtk.Builder()
+        if GTK4:
+            builder = Gtk.Builder(signal_checker)
+        else:
+            builder = Gtk.Builder()
 
         # add object1 to the builder
         builder.add_from_string("""
@@ -1152,8 +1170,9 @@ class TestBuilder(unittest.TestCase):
 </interface>
 """, ['object3'])
 
-        # hook up signals
-        builder.connect_signals(signal_checker)
+        # hook up signals for Gtk3
+        if not GTK4:
+            builder.connect_signals(signal_checker)
 
         # call their notify signals and check sentinel
         objects = builder.get_objects()
